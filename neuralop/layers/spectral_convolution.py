@@ -1,11 +1,6 @@
 import itertools
 from typing import Optional, Tuple
 
-try:
-    from typing import Literal
-except ImportError:
-    from typing_extensions import Literal
-
 import torch
 from torch import nn
 
@@ -178,7 +173,7 @@ def get_contract_fun(weight, implementation="reconstructed", separable=False):
             )
     else:
         raise ValueError(
-            f'Got implementation={implementation}, expected "reconstructed" or "factorized"'
+            f'Got {implementation=}, expected "reconstructed" or "factorized"'
         )
 
 
@@ -320,8 +315,7 @@ class SpectralConv(nn.Module):
             if in_channels != out_channels:
                 raise ValueError(
                     "To use separable Fourier Conv, in_channels must be equal "
-                    f"to out_channels, but got in_channels={in_channels} and "
-                    f"out_channels={out_channels}",
+                    f"to out_channels, but got {in_channels=} and {out_channels=}",
                 )
             weight_shape = (in_channels, *half_total_n_modes)
         else:
@@ -390,8 +384,7 @@ class SpectralConv(nn.Module):
                     self._incremental_n_modes = incremental_n_modes
                 else:
                     raise ValueError(
-                        f"Provided {incremental_n_modes} for actual "
-                        f"n_modes={self.n_modes}."
+                        f"Provided {incremental_n_modes} for actual {self.n_modes=}."
                     )
             self.weight_slices = [slice(None)] * 2 + [
                 slice(None, n // 2) for n in self._incremental_n_modes

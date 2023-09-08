@@ -52,7 +52,7 @@ def load_darcy_flow_small(
         if res not in [16, 32]:
             raise ValueError(
                 f"Only 32 and 64 are supported for test resolution, "
-                f"but got test_resolutions={test_resolutions}"
+                f"but got {test_resolutions=}"
             )
     path = Path(__file__).resolve().parent.joinpath("data")
     return load_darcy_pt(
@@ -169,7 +169,7 @@ def load_darcy_pt(
     ):
         print(
             f"Loading test db at resolution {res} with {n_test} samples "
-            f"and batch-size={test_batch_size}"
+            f"and {test_batch_size=}"
         )
         data = torch.load(Path(data_path).joinpath(f"darcy_test_{res}.pt").as_posix())
         x_test = (

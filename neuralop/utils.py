@@ -17,7 +17,7 @@ class UnitGaussianNormalizer:
         
         if verbose:
             print(f'UnitGaussianNormalizer init on {n_samples}, reducing over {reduce_dim}, samples of shape {shape}.')
-            print(f'   Mean and std of shape {self.mean.shape}, eps={eps}')
+            print(f'   Mean and std of shape {self.mean.shape}, {eps=}')
 
     def encode(self, x):
         # x = x.view(-1, *self.sample_shape)

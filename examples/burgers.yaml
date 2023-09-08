@@ -1,0 +1,22 @@
+data_path: "/home/mogab/code/dev/neuraloperator/data/burgers_data_R10.pth"
+n_train: 1000
+n_test: 100
+train_batch_size: 32
+test_batch_size: 32
+learning_rate: 0.001
+
+# Let the number of epochs be small just for running the documentation.
+# In practice, this should be on the order of 500.
+epochs: 50
+
+# Expected to be: epochs * (n_train // train_batch_size)
+iterations: 1_500
+modes: 16
+width: 48
+subsampling_rate: 8
+
+# Expected to be 8192 // subsampling_rate
+s: 1024
+
+# Expected to be equal to ``s``
+h: 1024

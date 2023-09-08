@@ -31,7 +31,8 @@ def setup(config):
 
         #Ensure every iteration has the same amount of data 
         assert(config.data.n_train % config.data.batch_size == 0), (
-            f'The number of training samples={config.data.n_train} cannot be divided by the batch_size={config.data.batch_size}.'
+            f'The number of training samples={config.data.n_train} '
+            f'cannot be divided by the batch_size={config.data.batch_size}.'
         )
         for j in range(len(config.data.test_batch_sizes)):
             assert(config.data.n_tests[j] % config.data.test_batch_sizes[j] == 0), (

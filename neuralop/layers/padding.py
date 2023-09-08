@@ -69,8 +69,8 @@ class DomainPadding(nn.Module):
 
             if verbose:
                 print(
-                    f"Padding inputs of resolution={resolution} with "
-                    f"padding={padding}, {self.padding_mode}"
+                    f"Padding inputs of {resolution=} "
+                    f"with {padding=}, {self.padding_mode}"
                 )
 
             # padding is being applied in reverse order
@@ -116,7 +116,7 @@ class DomainPadding(nn.Module):
                 unpad_indices = (Ellipsis,) + tuple(unpad_list)
                 padding = [i for p in padding for i in (0, p)]
             else:
-                raise ValueError(f"Got padding_mode={self.padding_mode}")
+                raise ValueError(f"Got {self.padding_mode=}")
 
             self._padding[f"{resolution}"] = padding
 

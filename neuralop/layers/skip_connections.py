@@ -45,7 +45,7 @@ def skip_connection(
         return nn.Identity()
     else:
         raise ValueError(
-            f"Got skip-connection type={skip_type}, expected one of"
+            f"Got skip-connection {skip_type=}, expected one of"
             f" {'soft-gating', 'linear', 'id'}."
         )
 
@@ -72,7 +72,7 @@ class SoftGating(nn.Module):
         super().__init__()
         if out_features is not None and in_features != out_features:
             raise ValueError(
-                f"Got in_features={in_features} and out_features={out_features}"
+                f"Got {in_features=} and {out_features=}"
                 "but these two must be the same for soft-gating"
             )
         self.in_features = in_features

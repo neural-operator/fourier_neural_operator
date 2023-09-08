@@ -1,4 +1,5 @@
 import math
+from typing import List, Union
 
 import torch
 from torch import nn
@@ -42,15 +43,16 @@ class MultigridPatching2D(nn.Module):
 
         if levels > 0:
             print(
-                "MGPatching("
-                f"n_patches={self.n_patches}, "
-                f"padding_fraction={self.padding_fraction}, "
-                f"levels={self.levels}, "
-                f"use_distributed={use_distributed}, "
-                f"stitching={stitching})"
+                f"MGPatching("
+                f"{self.n_patches=}, "
+                f"{self.padding_fraction=}, "
+                f"{self.levels=}, "
+                f"{use_distributed=}, "
+                f"{stitching=})"
             )
 
-        # If distributed patches are stiched, re-scale gradients to revert DDP averaging
+        # If distributed patches are stitched,
+        # re-scale gradients to revert DDP averaging
         if self.use_distributed and self.stitching:
             for param in model.parameters():
                 param.register_hook(
@@ -87,7 +89,7 @@ class MultigridPatching2D(nn.Module):
         else:
             x = x
 
-        # Stich patches or patch the truth if output left unstitched
+        # Stitch patches or patch the truth if output left unstitched
         if self.stitching or evaluation:
             x = self._stitch(x)
 
@@ -127,75 +129,78 @@ class MultigridPatching2D(nn.Module):
             return x
 
         _, _, height, width = x.shape
-        padding = [
-            int(round(v))
-            for v in [
-                height * self.padding_fraction[0],
-                width * self.padding_fraction[1],
-            ]
-        ]
-        self.padding_height = padding[0]
-        self.padding_width = padding[1]
+        self.padding_height = round(height * self.padding_fraction[0])
+        self.padding_width = round(width * self.padding_fraction[1])
+        padding = [self.padding_height, self.padding_width]
 
         patched = make_patches(x, n=2**self.levels, p=padding)
 
-        s1_patched = patched.size(-2) - 2 * padding[0]
-        s2_patched = patched.size(-1) - 2 * padding[1]
+        # approx. height // 2**levels
+        s1_patched = patched.size(-2) - 2 * self.padding_height
+        # approx. width // 2**levels
+        s2_patched = patched.size(-1) - 2 * self.padding_width
 
+        n_scaling = 2**levels - 1
         for level in range(1, levels + 1):
             sub_sample = 2**level
-            s1_stride = s1_patched // sub_sample
-            s2_stride = s2_patched // sub_sample
-
             x_sub = x[:, :, ::sub_sample, ::sub_sample]
 
-            s2_pad = (
-                math.ceil(
-                    (s2_patched + (2**levels - 1) * s2_stride - x_sub.size(-1)) / 2.0
-                )
-                + padding[1]
-            )
-            s1_pad = (
-                math.ceil(
-                    (s1_patched + (2**levels - 1) * s1_stride - x_sub.size(-2)) / 2.0
-                )
-                + padding[0]
-            )
+            s1_stride = s1_patched // sub_sample
+            # Two-sided patch height; to be halved for one-sided height:
+            patch_height = s1_patched + n_scaling * s1_stride - x_sub.size(-2)
+            s1_pad = math.ceil(patch_height / 2.0) + self.padding_height
+
+            s2_stride = s2_patched // sub_sample
+            # Two-sided patch width; to be halved for one-sided width:
+            patch_width = s2_patched + n_scaling * s2_stride - x_sub.size(-1)
+            s2_pad = math.ceil(patch_width / 2.0) + self.padding_width
 
             if s2_pad > x_sub.size(-1):
                 diff = s2_pad - x_sub.size(-1)
                 x_sub = torch.nn.functional.pad(
-                    x_sub, pad=[x_sub.size(-1), x_sub.size(-1), 0, 0], mode="circular"
+                    x_sub,
+                    pad=[x_sub.size(-1), x_sub.size(-1), 0, 0],
+                    mode="circular",
                 )
                 x_sub = torch.nn.functional.pad(
-                    x_sub, pad=[diff, diff, 0, 0], mode="circular"
+                    x_sub,
+                    pad=[diff, diff, 0, 0],
+                    mode="circular",
                 )
             else:
                 x_sub = torch.nn.functional.pad(
-                    x_sub, pad=[s2_pad, s2_pad, 0, 0], mode="circular"
+                    x_sub,
+                    pad=[s2_pad, s2_pad, 0, 0],
+                    mode="circular",
                 )
 
             if s1_pad > x_sub.size(-2):
                 diff = s1_pad - x_sub.size(-2)
                 x_sub = torch.nn.functional.pad(
-                    x_sub, pad=[0, 0, x_sub.size(-2), x_sub.size(-2)], mode="circular"
+                    x_sub,
+                    pad=[0, 0, x_sub.size(-2), x_sub.size(-2)],
+                    mode="circular",
                 )
                 x_sub = torch.nn.functional.pad(
-                    x_sub, pad=[0, 0, diff, diff], mode="circular"
+                    x_sub,
+                    pad=[0, 0, diff, diff],
+                    mode="circular",
                 )
             else:
                 x_sub = torch.nn.functional.pad(
-                    x_sub, pad=[0, 0, s1_pad, s1_pad], mode="circular"
+                    x_sub,
+                    pad=[0, 0, s1_pad, s1_pad],
+                    mode="circular",
                 )
 
-            x_sub = x_sub.unfold(-1, s2_patched + 2 * padding[1], s2_stride)
-            x_sub = x_sub.unfold(-3, s1_patched + 2 * padding[0], s1_stride)
+            x_sub = x_sub.unfold(-1, s2_patched + 2 * self.padding_width, s2_stride)
+            x_sub = x_sub.unfold(-3, s1_patched + 2 * self.padding_height, s1_stride)
 
             x_sub = x_sub.permute(0, 2, 3, 4, 5, 1)
             x_sub = x_sub.reshape(
                 patched.size(0),
-                s2_patched + 2 * padding[1],
-                s1_patched + 2 * padding[0],
+                s2_patched + 2 * self.padding_width,
+                s1_patched + 2 * self.padding_height,
                 -1,
             )
             x_sub = x_sub.permute(0, 3, 2, 1)
@@ -212,10 +217,12 @@ class MultigridPatching2D(nn.Module):
         ].contiguous()
 
 
-# x : (batch, C, s) or (batch, C, h, w)
-# y : (n*batch, C, s/n + 2p) or (n1*n2*batch, C, h/n1 + 2*p1, w/n2 + 2*p2)
-def make_patches(x, n, p=0):
-
+# x : (  batch, C, s)
+# y : (n*batch, C, s/n + 2p)
+# -- OR --
+# x : (      batch, C, h,           w)
+# y : (n1*n2*batch, C, h/n1 + 2*p1, w/n2 + 2*p2)
+def make_patches(x, n, p: Union[int, List[int]] = 0):
     size = x.size()
 
     # Only 1D and 2D supported

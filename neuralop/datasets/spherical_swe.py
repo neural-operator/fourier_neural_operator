@@ -9,13 +9,15 @@ def load_spherical_swe(n_train, n_tests, batch_size, test_batch_sizes,
                   device=torch.device('cpu')):
     """Load the Spherical Shallow Water equations Dataloader"""
 
-    print(f'Loading train dataloader at resolution {train_resolution} with {n_train} samples and batch-size={batch_size}')
+    print(f'Loading train dataloader at resolution {train_resolution} '
+          f'with {n_train} samples and {batch_size=}')
     train_dataset = SphericalSWEDataset(dims=train_resolution, num_examples=n_train, device=device)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, persistent_workers=False)
 
     test_loaders =  dict()
     for (res, n_test, test_batch_size) in zip(test_resolutions, n_tests, test_batch_sizes):
-        print(f'Loading test dataloader at resolution {res} with {n_test} samples and batch-size={test_batch_size}')
+        print(f'Loading test dataloader at resolution {res} '
+              f'with {n_test} samples and {test_batch_size=}')
 
         test_dataset = SphericalSWEDataset(dims=res, num_examples=n_test, device=device)
         test_loader = DataLoader(test_dataset, batch_size=test_batch_size, shuffle=True, num_workers=0, persistent_workers=False)

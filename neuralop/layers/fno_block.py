@@ -169,7 +169,7 @@ class FNOBlocks(nn.Module):
             )
         else:
             raise ValueError(
-                f"Got norm={norm} but expected None or one of "
+                f"Got {norm=} but expected None or one of "
                 "[instance_norm, group_norm, layer_norm]"
             )
 

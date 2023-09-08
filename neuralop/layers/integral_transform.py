@@ -57,7 +57,6 @@ class IntegralTransform(nn.Module):
         mlp_non_linearity=F.gelu,
         transform_type="linear",
     ):
-
         super().__init__()
 
         assert mlp is not None or mlp_layers is not None

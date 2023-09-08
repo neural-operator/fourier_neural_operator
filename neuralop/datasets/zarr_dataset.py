@@ -19,8 +19,7 @@ class ZarrDataset(Dataset):
             subsample_step = resolution_to_step[resolution]
         except KeyError:
             raise ValueError(
-                f"Got resolution={resolution}, "
-                f"expected one of {resolution_to_step.keys()}"
+                f"Got {resolution=}, expected one of {resolution_to_step.keys()}"
             )
 
         self.subsample_step = subsample_step

@@ -53,7 +53,8 @@ def load_navier_stokes_zarr(data_path, n_train, batch_size,
 
     test_loaders = dict()
     for (res, n_test, test_batch_size) in zip(test_resolutions, n_tests, test_batch_sizes):
-        print(f'Loading test db at resolution {res} with {n_test} samples and batch-size={test_batch_size}')
+        print(f'Loading test db at resolution {res} with {n_test} samples and '
+              f'{test_batch_size=}')
         transform_x = []
         transform_y = None
         if encode_input:
@@ -120,7 +121,8 @@ def load_navier_stokes_hdf5(data_path, n_train, batch_size,
 
     test_loaders = dict()
     for (res, n_test, test_batch_size) in zip(test_resolutions, n_tests, test_batch_sizes):
-        print(f'Loading test db at resolution {res} with {n_test} samples and batch-size={test_batch_size}')
+        print(f'Loading test db at resolution {res} with {n_test} samples and '
+              f'{test_batch_size=}')
         transform_x = []
         transform_y = None
         if encode_input:
@@ -214,7 +216,8 @@ def load_navier_stokes_pt(data_path, train_resolution,
 
     test_loaders =  {train_resolution: test_loader}
     for (res, n_test, test_batch_size) in zip(test_resolutions, n_tests, test_batch_sizes):
-        print(f'Loading test db at resolution {res} with {n_test} samples and batch-size={test_batch_size}')
+        print(f'Loading test db at resolution {res} with {n_test} samples '
+              f'and {test_batch_size=}')
         x_test, y_test = _load_navier_stokes_test_HR(data_path, n_test, resolution=res, channel_dim=channel_dim)
         if input_encoder is not None:
             x_test = input_encoder.encode(x_test)
