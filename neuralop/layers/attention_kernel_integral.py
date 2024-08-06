@@ -119,7 +119,11 @@ class AttentionKernelIntegral(torch.nn.Module):
         # u: the input or transformed function
         batch_size = u.shape[0]
         u = u.view(batch_size*self.n_heads, -1, self.head_n_channels)
+        if isinstance(norm_fn, nn.InstanceNorm1d) or isinstance(norm_fn, nn.GroupNorm):
+            u = u.permute(0, 2, 1).contiguous()
         u = norm_fn(u)    # layer norm with channel dimension or instance norm with spatial dimension
+        if isinstance(norm_fn, nn.InstanceNorm1d) or isinstance(norm_fn, nn.GroupNorm):
+            u = u.permute(0, 2, 1).contiguous()
         return u.view(batch_size, self.n_heads, -1, self.head_n_channels)
 
     def forward(self,
@@ -174,6 +178,7 @@ class AttentionKernelIntegral(torch.nn.Module):
         q = self.to_q(u_qry)
         k = self.to_k(u_src)
         v = self.to_v(u_src)
+
         q = q.view(batch_size, -1, self.n_heads, self.head_n_channels).permute(0, 2, 1, 3).contiguous()
         k = k.view(batch_size, -1, self.n_heads, self.head_n_channels).permute(0, 2, 1, 3).contiguous()
         v = v.view(batch_size, -1, self.n_heads, self.head_n_channels).permute(0, 2, 1, 3).contiguous()

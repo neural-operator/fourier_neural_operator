@@ -1,0 +1,75 @@
+default: &DEFAULT
+
+  #General
+  # For computing compression
+  n_params_baseline: None
+  verbose: True
+  arch: 'transformer_no'
+
+  #Distributed computing
+  distributed:
+    use_distributed: False
+    wireup_info: 'mpi'
+    wireup_store: 'tcp'
+    model_parallel_size: 2
+    seed: 666
+
+  # Transformer NO related
+  transformer_no:
+    data_channels: 1
+    n_dim: 2
+    in_channels: 1
+    out_channels: 1
+    encoder_hidden_channels: 64
+    decoder_hidden_channels: 64
+    encoder_num_heads: 4
+    decoder_num_heads: 16
+    encoder_n_layers: 3
+    norm: 'layer_norm'
+    query_basis: siren
+    attention_skip: identity
+    mlp_skip: identity
+
+  # Optimizer
+  opt:
+    n_epochs: 300
+    learning_rate: 5e-4
+    training_loss: 'h1'
+    weight_decay: 1e-6
+    amp_autocast: False
+
+    scheduler_T_max: 500 # For cosine only, typically take n_epochs
+    scheduler_patience: 5 # For ReduceLROnPlateau only
+    scheduler: 'CosineAnnealingLR' # Or 'StepLR' OR 'ReduceLROnPlateau'
+    step_size: 60
+    gamma: 0.5
+
+  # Dataset related
+  data:
+    batch_size: 16
+    n_train: 1000
+    train_resolution: 16
+    n_tests: [100, 50]
+    test_resolutions: [16, 32]
+    test_batch_sizes: [16, 16]
+    positional_encoding: False
+
+    encode_input: False
+    encode_output: False
+
+  # Patching
+  patching:
+    levels: 0
+    padding: 0
+    stitching: False
+
+  # Weights and biases
+  wandb:
+    log: False
+    name: None # If None, config will be used but you can override it here
+    group: '' 
+    project: ""
+    entity: "" # put your username here
+    sweep: False
+    log_output: True
+    log_test_interval: 1

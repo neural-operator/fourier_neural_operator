@@ -6,6 +6,7 @@ try:
 except ModuleNotFoundError:
     pass
 from .uno import UNO
+from .transformer_no import TransformerNO
 from .fnogno import FNOGNO
 from .gino import GINO
 from .base_model import get_model
