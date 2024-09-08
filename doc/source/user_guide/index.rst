@@ -11,3 +11,4 @@ User guide
    neural_operators
    fno
    training
+   beginners_guide
