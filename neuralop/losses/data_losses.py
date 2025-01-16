@@ -14,7 +14,7 @@ from .finite_diff import central_diff_1d, central_diff_2d, central_diff_3d
 
 #loss function with rel/abs Lp loss
 class LpLoss(object):
-    """
+    r"""
     LpLoss provides the L-p norm between two 
     discretized d-dimensional functions. Note that 
     LpLoss always averages over the spatial dimensions.

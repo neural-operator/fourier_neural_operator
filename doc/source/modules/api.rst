@@ -46,7 +46,7 @@ We also have dimension-specific classes:
 Tensorized FNO (TFNO)
 ----------------------
 
-N-D version: 
+N-D version:
 
 .. autosummary::
     :toctree: generated
@@ -94,10 +94,22 @@ U-shaped Neural Operators (U-NO)
 .. autosummary::
     :toctree: generated
     :template: class.rst
-    
+
     UNO
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+U-shaped DISCO Neural Operator (UDNO)
+-------------------------------------
+*Optimized for imaging and other tasks that require learning local features. Ex: accelerated MRI reconstruction*
+
+The UDNO is an in-place neural operator replacement for the U-Net. It's well equipped for tasks that require learning local features such as imaging.
+
+.. autosummary::
+    :toctree: generated
+    :template: class.rst
+
+    UDNO
 
 Layers
 =======
@@ -109,7 +121,7 @@ Layers
 .. _neuralop_layers_ref:
 
 
-In addition to the full architectures, we also provide 
+In addition to the full architectures, we also provide
 in :mod:`neuralop.layers` building blocks,
 in the form of PyTorch layers, that you can use to build your own models:
 
@@ -130,7 +142,7 @@ General SpectralConv layer:
 
     SpectralConv
 
-Dimension-specific versions: 
+Dimension-specific versions:
 
 .. autosummary::
     :toctree: generated
@@ -295,7 +307,7 @@ Positional embedding layers:
     GridEmbeddingND
     SinusoidalEmbedding
 
-Automatically apply resolution dependent domain padding: 
+Automatically apply resolution dependent domain padding:
 
 .. automodule:: neuralop.layers.padding
     :no-members:
@@ -348,7 +360,7 @@ It has the advantage of doing some checks on the parameters it receives.
 
 Training
 =========
-We provide functionality that automates the boilerplate code associated with 
+We provide functionality that automates the boilerplate code associated with
 training a machine learning model to minimize a loss function on a dataset:
 
 .. automodule:: neuralop.training
@@ -430,7 +442,7 @@ DataProcessors
 --------------
 
 Much like PyTorch's `Torchvision.Datasets` module, our `data` module also includes
-utilities to transform data from its raw form into the form expected by models and 
+utilities to transform data from its raw form into the form expected by models and
 loss functions:
 
 .. automodule:: neuralop.data.transforms.data_processors

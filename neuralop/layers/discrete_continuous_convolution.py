@@ -10,18 +10,24 @@ from functools import partial
 
 # import the base class from torch-harmonics
 from torch_harmonics.quadrature import _precompute_grid
-from torch_harmonics.convolution import _compute_support_vals_isotropic, _compute_support_vals_anisotropic
+from torch_harmonics.convolution import (
+    _compute_support_vals_isotropic,
+    _compute_support_vals_anisotropic,
+)
 
-#def _compute_kernel_basis_isotropic()
+# def _compute_kernel_basis_isotropic()
 
-def _normalize_convolution_filter_matrix(psi_idx,
-                                     psi_vals,
-                                     grid_in,
-                                     grid_out,
-                                     kernel_shape,
-                                     quadrature_weights,
-                                     transpose_normalization=False,
-                                     eps=1e-9):
+
+def _normalize_convolution_filter_matrix(
+    psi_idx,
+    psi_vals,
+    grid_in,
+    grid_out,
+    kernel_shape,
+    quadrature_weights,
+    transpose_normalization=False,
+    eps=1e-9,
+):
     """
     Discretely normalizes the convolution tensor.
     """
@@ -66,32 +72,34 @@ def _normalize_convolution_filter_matrix(psi_idx,
     return psi_vals
 
 
-def _precompute_convolution_filter_matrix(grid_in,
-                                      grid_out,
-                                      kernel_shape,
-                                      quadrature_weights,
-                                      normalize=True,
-                                      radius_cutoff=0.01,
-                                      periodic=False,
-                                      transpose_normalization=False):
+def _precompute_convolution_filter_matrix(
+    grid_in,
+    grid_out,
+    kernel_shape,
+    quadrature_weights,
+    normalize=True,
+    radius_cutoff=0.01,
+    periodic=False,
+    transpose_normalization=False,
+):
     """
-    Precomputes the values stored in Psi, the local convolution filter matrix. 
-    The values are the results of a set of kernel basis "hat" functions applied to 
+    Precomputes the values stored in Psi, the local convolution filter matrix.
+    The values are the results of a set of kernel basis "hat" functions applied to
     pairwise distances between each points on the input and output grids.
 
     The hat functions are the absolute differences between a squared distance and a
-    multiple of the radius scaled by the kernel size. 
+    multiple of the radius scaled by the kernel size.
 
     Assume the kernel is an array of shape ``(k0, k1)``. Then:
 
     If the kernel is isotropic (``k0 == k1``), the basis functions are a series of
     ``k0`` distances re-centered around multiples of the discretization size of the
     convolution's radius. If the kernel is anisotropic, the outputs of these hat
-    functions are then multiplied by the outputs of another series of ``k1`` hat 
-    functions evaluated on the arctangents of these pairwise distances. 
+    functions are then multiplied by the outputs of another series of ``k1`` hat
+    functions evaluated on the arctangents of these pairwise distances.
 
     Compared to the ``torch_harmonics`` routine for spherical support values, this
-    function also returns the translated filters at positions 
+    function also returns the translated filters at positions
     $T^{-1}_j \omega_i = T^{-1}_j T_i \nu$, but assumes a non-periodic subset of the
     euclidean plane.
     """
@@ -106,9 +114,16 @@ def _precompute_convolution_filter_matrix(grid_in,
     n_out = grid_out.shape[-1]
 
     if len(kernel_shape) == 1:
-        kernel_handle = partial(_compute_support_vals_isotropic, nr=kernel_shape[0], r_cutoff=radius_cutoff)
+        kernel_handle = partial(
+            _compute_support_vals_isotropic, nr=kernel_shape[0], r_cutoff=radius_cutoff
+        )
     elif len(kernel_shape) == 2:
-        kernel_handle = partial(_compute_support_vals_anisotropic, nr=kernel_shape[0], nphi=kernel_shape[1], r_cutoff=radius_cutoff)
+        kernel_handle = partial(
+            _compute_support_vals_anisotropic,
+            nr=kernel_shape[0],
+            nphi=kernel_shape[1],
+            r_cutoff=radius_cutoff,
+        )
     else:
         raise ValueError("kernel_shape should be either one- or two-dimensional.")
 
@@ -128,15 +143,18 @@ def _precompute_convolution_filter_matrix(grid_in,
     idx = idx.permute(1, 0)
 
     if normalize:
-        vals = _normalize_convolution_filter_matrix(idx,
-                                                vals,
-                                                grid_in,
-                                                grid_out,
-                                                kernel_shape,
-                                                quadrature_weights,
-                                                transpose_normalization=transpose_normalization)
+        vals = _normalize_convolution_filter_matrix(
+            idx,
+            vals,
+            grid_in,
+            grid_out,
+            kernel_shape,
+            quadrature_weights,
+            transpose_normalization=transpose_normalization,
+        )
 
     return idx, vals
+
 
 class DiscreteContinuousConv(nn.Module, metaclass=abc.ABCMeta):
     """
@@ -152,7 +170,7 @@ class DiscreteContinuousConv(nn.Module, metaclass=abc.ABCMeta):
         number of output channels
     kernel_shape : int or [int, int]
         shape of convolution kernel
-        
+
         * If a single int is passed, kernel will isotropic
 
         * If a list of two nonequal ints are passed, kernel will be anisotropic.
@@ -198,15 +216,21 @@ class DiscreteContinuousConv(nn.Module, metaclass=abc.ABCMeta):
 
         # weight tensor
         if in_channels % self.groups != 0:
-            raise ValueError("Error, the number of input channels has to be an integer multiple of the group size")
+            raise ValueError(
+                "Error, the number of input channels has to be an integer multiple of the group size"
+            )
         if out_channels % self.groups != 0:
-            raise ValueError("Error, the number of output channels has to be an integer multiple of the group size")
-        
+            raise ValueError(
+                "Error, the number of output channels has to be an integer multiple of the group size"
+            )
+
         self.groupsize = in_channels // self.groups
-        
+
         scale = math.sqrt(1.0 / self.groupsize)
-        
-        self.weight = nn.Parameter(scale * torch.randn(out_channels, self.groupsize, self.kernel_size))
+
+        self.weight = nn.Parameter(
+            scale * torch.randn(out_channels, self.groupsize, self.kernel_size)
+        )
 
         if bias:
             self.bias = nn.Parameter(torch.zeros(out_channels))
@@ -217,9 +241,10 @@ class DiscreteContinuousConv(nn.Module, metaclass=abc.ABCMeta):
     def forward(self, x: torch.Tensor):
         raise NotImplementedError
 
+
 class DiscreteContinuousConv2d(DiscreteContinuousConv):
     """
-    Discrete-continuous convolutions (DISCO) on arbitrary 2d grids 
+    Discrete-continuous convolutions (DISCO) on arbitrary 2d grids
     as implemented in [1]_. To evaluate continuous convolutions on a
     computer, they can be evaluated semi-discretely, where the translation
     operation is performed continuously, and the quadrature/projection is
@@ -262,7 +287,7 @@ class DiscreteContinuousConv2d(DiscreteContinuousConv):
     radius_cutoff: float, optional
         cutoff radius for the kernel. For a point ``x`` on the input grid,
         every point ``y`` on the output grid with ``||x - y|| <= radius_cutoff``
-        will be affected by the value at ``x``. 
+        will be affected by the value at ``x``.
         By default, set to 2 / sqrt(# of output points)
 
     References
@@ -340,12 +365,14 @@ class DiscreteContinuousConv2d(DiscreteContinuousConv):
         # integration weights
         self.register_buffer("quadrature_weights", quadrature_weights, persistent=False)
 
-        idx, vals = _precompute_convolution_filter_matrix(grid_in,
-                                                      grid_out,
-                                                      self.kernel_shape,
-                                                      quadrature_weights,
-                                                      radius_cutoff=radius_cutoff,
-                                                      periodic=periodic)
+        idx, vals = _precompute_convolution_filter_matrix(
+            grid_in,
+            grid_out,
+            self.kernel_shape,
+            quadrature_weights,
+            radius_cutoff=radius_cutoff,
+            periodic=periodic,
+        )
 
         # to improve performance, we make psi a matrix by merging the first two dimensions
         # This has to be accounted for in the forward pass
@@ -357,13 +384,15 @@ class DiscreteContinuousConv2d(DiscreteContinuousConv):
     def get_local_filter_matrix(self):
         """
         Returns the precomputed local convolution filter matrix Psi.
-        Psi parameterizes the kernel function as triangular basis functions 
+        Psi parameterizes the kernel function as triangular basis functions
         evaluated on pairs of points on the convolution's input and output grids,
         such that Psi[l, i, j] is the l-th basis function evaluated on point i in
         the output grid and point j in the input grid.
         """
 
-        psi = torch.sparse_coo_tensor(self.psi_idx, self.psi_vals, size=(self.kernel_size * self.n_out, self.n_in))
+        psi = torch.sparse_coo_tensor(
+            self.psi_idx, self.psi_vals, size=(self.kernel_size * self.n_out, self.n_in)
+        )
         return psi
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -386,7 +415,13 @@ class DiscreteContinuousConv2d(DiscreteContinuousConv):
         x = x.reshape(B, self.groups, self.groupsize, self.kernel_size, self.n_out)
 
         # do weight multiplication
-        out = torch.einsum("bgckx,gock->bgox", x, self.weight.reshape(self.groups, -1, self.weight.shape[1], self.weight.shape[2]))
+        out = torch.einsum(
+            "bgckx,gock->bgox",
+            x,
+            self.weight.reshape(
+                self.groups, -1, self.weight.shape[1], self.weight.shape[2]
+            ),
+        )
         out = out.reshape(out.shape[0], -1, out.shape[-1])
 
         if self.bias is not None:
@@ -435,7 +470,7 @@ class DiscreteContinuousConvTranspose2d(DiscreteContinuousConv):
     radius_cutoff: float, optional
         cutoff radius for the kernel. For a point ``x`` on the input grid,
         every point ``y`` on the output grid with ``||x - y|| <= radius_cutoff``
-        will be affected by the value at ``x``. 
+        will be affected by the value at ``x``.
         By default, set to 2 / sqrt(# of output points)
 
     References
@@ -512,8 +547,13 @@ class DiscreteContinuousConvTranspose2d(DiscreteContinuousConv):
 
         # precompute the transposed tensor
         idx, vals = _precompute_convolution_filter_matrix(
-            grid_out, grid_in, self.kernel_shape, quadrature_weights, 
-            radius_cutoff=radius_cutoff, periodic=periodic, transpose_normalization=True
+            grid_out,
+            grid_in,
+            self.kernel_shape,
+            quadrature_weights,
+            radius_cutoff=radius_cutoff,
+            periodic=periodic,
+            transpose_normalization=True,
         )
 
         # to improve performance, we make psi a matrix by merging the first two dimensions
@@ -526,13 +566,15 @@ class DiscreteContinuousConvTranspose2d(DiscreteContinuousConv):
     def get_local_filter_matrix(self):
         """
         Returns the precomputed local convolution filter matrix Psi.
-        Psi parameterizes the kernel function as triangular basis functions 
+        Psi parameterizes the kernel function as triangular basis functions
         evaluated on pairs of points on the convolution's input and output grids,
         such that Psi[l, i, j] is the l-th basis function evaluated on point i in
         the output grid and point j in the input grid.
         """
 
-        psi = torch.sparse_coo_tensor(self.psi_idx, self.psi_vals, size=(self.kernel_size * self.n_out, self.n_in))
+        psi = torch.sparse_coo_tensor(
+            self.psi_idx, self.psi_vals, size=(self.kernel_size * self.n_out, self.n_in)
+        )
         return psi
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -556,9 +598,13 @@ class DiscreteContinuousConvTranspose2d(DiscreteContinuousConv):
         x = x.reshape(B, self.groups, self.groupsize, self.kernel_size, self.n_out)
 
         # do weight multiplication
-        out = torch.einsum("bgckx,gock->bgox", x, self.weight.reshape(self.groups, -1,
-                                                                      self.weight.shape[1],
-                                                                      self.weight.shape[2]))
+        out = torch.einsum(
+            "bgckx,gock->bgox",
+            x,
+            self.weight.reshape(
+                self.groups, -1, self.weight.shape[1], self.weight.shape[2]
+            ),
+        )
         out = out.reshape(out.shape[0], -1, out.shape[-1])
 
         if self.bias is not None:
@@ -574,7 +620,7 @@ class EquidistantDiscreteContinuousConv2d(DiscreteContinuousConv):
     kernels which makes it more efficient than the unstructured implementation
     above. Due to the mapping to an equidistant grid, the domain lengths need
     to be specified in order to compute the effective resolution and the
-    corresponding cutoff radius. Forward call expects an input of shape 
+    corresponding cutoff radius. Forward call expects an input of shape
     (batch_size, in_channels, in_shape[0], in_shape[1]).
 
     Parameters
@@ -583,7 +629,7 @@ class EquidistantDiscreteContinuousConv2d(DiscreteContinuousConv):
         input channels to DISCO convolution
     out_channels: int
         output channels of DISCO convolution
-    in_shape: Tuple[int]
+    in_shape: Tuple[int, int]
         shape of the (regular) input grid.
     out_shape: torch.Tensor or str
         shape of the (regular) output grid. Note that the side lengths
@@ -603,7 +649,7 @@ class EquidistantDiscreteContinuousConv2d(DiscreteContinuousConv):
     radius_cutoff: float, optional
         cutoff radius for the kernel. For a point ``x`` on the input grid,
         every point ``y`` on the output grid with ``||x - y|| <= radius_cutoff``
-        will be affected by the value at ``x``. 
+        will be affected by the value at ``x``.
         By default, set to 2 / sqrt(# of output points)
 
     References
@@ -616,15 +662,15 @@ class EquidistantDiscreteContinuousConv2d(DiscreteContinuousConv):
         self,
         in_channels: int,
         out_channels: int,
-        in_shape: Tuple[int],
-        out_shape: Tuple[int],
+        in_shape: Tuple[int, int],
+        out_shape: Tuple[int, int],
         kernel_shape: Union[int, List[int]],
         domain_length: Optional[Tuple[float]] = None,
         periodic: Optional[bool] = False,
         groups: Optional[int] = 1,
         bias: Optional[bool] = True,
         radius_cutoff: Optional[float] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(in_channels, out_channels, kernel_shape, groups, bias)
 
@@ -637,14 +683,20 @@ class EquidistantDiscreteContinuousConv2d(DiscreteContinuousConv):
         # compute the cutoff radius based on the assumption that the grid is [-1, 1]^2
         # this still assumes a quadratic domain
         if radius_cutoff is None:
-            radius_cutoff = max([self.domain_length[i] / float(out_shape[i]) for i in (0,1)])
+            radius_cutoff = max(
+                [self.domain_length[i] / float(out_shape[i]) for i in (0, 1)]
+            )
 
         if radius_cutoff <= 0.0:
             raise ValueError("Error, radius_cutoff has to be positive.")
 
         # compute how big the discrete kernel needs to be for the 2d convolution kernel to work
-        self.psi_local_h = math.floor(2*radius_cutoff * in_shape[0] / self.domain_length[0]) + 1
-        self.psi_local_w = math.floor(2*radius_cutoff * in_shape[1] / self.domain_length[1]) + 1
+        self.psi_local_h = (
+            math.floor(2 * radius_cutoff * in_shape[0] / self.domain_length[0]) + 1
+        )
+        self.psi_local_w = (
+            math.floor(2 * radius_cutoff * in_shape[1] / self.domain_length[1]) + 1
+        )
 
         # compute the scale_factor
         assert (in_shape[0] >= out_shape[0]) and (in_shape[0] % out_shape[0] == 0)
@@ -659,58 +711,79 @@ class EquidistantDiscreteContinuousConv2d(DiscreteContinuousConv):
         grid_in = torch.stack([x.reshape(-1), y.reshape(-1)])
 
         # compute quadrature weights on the incoming grid
-        self.q_weight = self.domain_length[0] * self.domain_length[1] / in_shape[0] / in_shape[1]
-        quadrature_weights = self.q_weight * torch.ones(self.psi_local_h * self.psi_local_w)
+        self.q_weight = (
+            self.domain_length[0] * self.domain_length[1] / in_shape[0] / in_shape[1]
+        )
+        quadrature_weights = self.q_weight * torch.ones(
+            self.psi_local_h * self.psi_local_w
+        )
         grid_out = torch.Tensor([[0.0], [0.0]])
 
         # precompute psi using conventional routines onto the local grid
-        idx, vals = _precompute_convolution_filter_matrix(grid_in,
-                                                      grid_out,
-                                                      self.kernel_shape,
-                                                      quadrature_weights,
-                                                      radius_cutoff=radius_cutoff,
-                                                      periodic=False,
-                                                      normalize=True)
+        idx, vals = _precompute_convolution_filter_matrix(
+            grid_in,
+            grid_out,
+            self.kernel_shape,
+            quadrature_weights,
+            radius_cutoff=radius_cutoff,
+            periodic=False,
+            normalize=True,
+        )
 
         # extract the local psi as a dense representation
-        local_filter_matrix = torch.zeros(self.kernel_size, self.psi_local_h*self.psi_local_w)
+        local_filter_matrix = torch.zeros(
+            self.kernel_size, self.psi_local_h * self.psi_local_w
+        )
         for ie in range(len(vals)):
-            f = idx[0, ie]; j = idx[2, ie]; v = vals[ie]
+            f = idx[0, ie]
+            j = idx[2, ie]
+            v = vals[ie]
             local_filter_matrix[f, j] = v
 
         # compute local version of the filter matrix
-        local_filter_matrix = local_filter_matrix.reshape(self.kernel_size, self.psi_local_h, self.psi_local_w)
+        local_filter_matrix = local_filter_matrix.reshape(
+            self.kernel_size, self.psi_local_h, self.psi_local_w
+        )
 
-        self.register_buffer("local_filter_matrix", local_filter_matrix, persistent=False)
+        self.register_buffer(
+            "local_filter_matrix", local_filter_matrix, persistent=False
+        )
 
     def get_local_filter_matrix(self):
         """
         Returns the precomputed local convolution filter matrix Psi.
-        Psi parameterizes the kernel function as triangular basis functions 
+        Psi parameterizes the kernel function as triangular basis functions
         evaluated on pairs of points on the convolution's input and output grids,
         such that Psi[l, i, j] is the l-th basis function evaluated on point i in
         the output grid and point j in the input grid.
         """
 
-        return self.local_filter_matrix.permute(0, 2, 1).flip(dims=(-1,-2))
+        return self.local_filter_matrix.permute(0, 2, 1).flip(dims=(-1, -2))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward call. Expects an input of shape batch_size x in_channels x in_shape[0] x in_shape[1].
         """
 
-        kernel = torch.einsum("kxy,ogk->ogxy", self.get_local_filter_matrix(), self.weight)
+        kernel = torch.einsum(
+            "kxy,ogk->ogxy", self.get_local_filter_matrix(), self.weight
+        )
         # padding is rounded down to give the right result when even kernels are applied
         # Check https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html for output shape math
-        h_pad = (self.psi_local_h+1) // 2 - 1
-        w_pad = (self.psi_local_w+1) // 2 - 1
-        out = nn.functional.conv2d(self.q_weight * x, kernel, self.bias,
-                                   stride=[self.scale_h, self.scale_w],
-                                   dilation=1,
-                                   padding=[h_pad, w_pad],
-                                   groups=self.groups)
+        h_pad = (self.psi_local_h + 1) // 2 - 1
+        w_pad = (self.psi_local_w + 1) // 2 - 1
+        out = nn.functional.conv2d(
+            self.q_weight * x,
+            kernel,
+            self.bias,
+            stride=[self.scale_h, self.scale_w],
+            dilation=1,
+            padding=[h_pad, w_pad],
+            groups=self.groups,
+        )
 
         return out
+
 
 class EquidistantDiscreteContinuousConvTranspose2d(DiscreteContinuousConv):
     """
@@ -748,7 +821,7 @@ class EquidistantDiscreteContinuousConvTranspose2d(DiscreteContinuousConv):
     radius_cutoff: float, optional
         cutoff radius for the kernel. For a point ``x`` on the input grid,
         every point ``y`` on the output grid with ``||x - y|| <= radius_cutoff``
-        will be affected by the value at ``x``. 
+        will be affected by the value at ``x``.
         By default, set to 2 / sqrt(# of output points)
 
     References
@@ -769,14 +842,16 @@ class EquidistantDiscreteContinuousConvTranspose2d(DiscreteContinuousConv):
         groups: Optional[int] = 1,
         bias: Optional[bool] = True,
         radius_cutoff: Optional[float] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(in_channels, out_channels, kernel_shape, groups, bias)
         # torch ConvTranspose2d expects grouped weights stacked along the out_channels
         # shape (in_channels, out_channels/groups, h, w)
-        self.weight = nn.Parameter(self.weight.permute(1,0,2).reshape(self.groupsize * self.groups,
-                                                                      -1,
-                                                                      self.weight.shape[-1]))
+        self.weight = nn.Parameter(
+            self.weight.permute(1, 0, 2).reshape(
+                self.groupsize * self.groups, -1, self.weight.shape[-1]
+            )
+        )
 
         # to ensure compatibility with the unstructured code, only constant zero and periodic padding are supported currently
         self.padding_mode = "circular" if periodic else "zeros"
@@ -787,14 +862,20 @@ class EquidistantDiscreteContinuousConvTranspose2d(DiscreteContinuousConv):
         # compute the cutoff radius based on the assumption that the grid is [-1, 1]^2
         # this still assumes a quadratic domain
         if radius_cutoff is None:
-            radius_cutoff = max([self.domain_length[i] / float(in_shape[i]) for i in (0,1)])
+            radius_cutoff = max(
+                [self.domain_length[i] / float(in_shape[i]) for i in (0, 1)]
+            )
 
         if radius_cutoff <= 0.0:
             raise ValueError("Error, radius_cutoff has to be positive.")
 
         # compute how big the discrete kernel needs to be for the 2d convolution kernel to work
-        self.psi_local_h = math.floor(2*radius_cutoff * out_shape[0] / self.domain_length[0]) + 1
-        self.psi_local_w = math.floor(2*radius_cutoff * out_shape[1] / self.domain_length[1]) + 1
+        self.psi_local_h = (
+            math.floor(2 * radius_cutoff * out_shape[0] / self.domain_length[0]) + 1
+        )
+        self.psi_local_w = (
+            math.floor(2 * radius_cutoff * out_shape[1] / self.domain_length[1]) + 1
+        )
 
         # compute the scale_factor
         assert (in_shape[0] <= out_shape[0]) and (out_shape[0] % in_shape[0] == 0)
@@ -810,54 +891,80 @@ class EquidistantDiscreteContinuousConvTranspose2d(DiscreteContinuousConv):
         grid_out = torch.Tensor([[0.0], [0.0]])
 
         # compute quadrature weights on the incoming grid
-        self.q_weight = self.domain_length[0] * self.domain_length[1] / out_shape[0] / out_shape[1]
-        quadrature_weights = self.q_weight * torch.ones(self.psi_local_h * self.psi_local_w)
+        self.q_weight = (
+            self.domain_length[0] * self.domain_length[1] / out_shape[0] / out_shape[1]
+        )
+        quadrature_weights = self.q_weight * torch.ones(
+            self.psi_local_h * self.psi_local_w
+        )
 
         # precompute psi using conventional routines onto the local grid
-        idx, vals = _precompute_convolution_filter_matrix(grid_in, 
-                                                      grid_out,
-                                                      self.kernel_shape,
-                                                      quadrature_weights,
-                                                      radius_cutoff=radius_cutoff,
-                                                      periodic=False, normalize=True,
-                                                      transpose_normalization=False)
+        idx, vals = _precompute_convolution_filter_matrix(
+            grid_in,
+            grid_out,
+            self.kernel_shape,
+            quadrature_weights,
+            radius_cutoff=radius_cutoff,
+            periodic=False,
+            normalize=True,
+            transpose_normalization=False,
+        )
 
         # extract the local psi as a dense representation
-        local_filter_matrix = torch.zeros(self.kernel_size, self.psi_local_h*self.psi_local_w)
+        local_filter_matrix = torch.zeros(
+            self.kernel_size, self.psi_local_h * self.psi_local_w
+        )
         for ie in range(len(vals)):
-            f = idx[0, ie]; j = idx[2, ie]; v = vals[ie]
+            f = idx[0, ie]
+            j = idx[2, ie]
+            v = vals[ie]
             local_filter_matrix[f, j] = v
 
         # compute local version of the filter matrix
-        local_filter_matrix = local_filter_matrix.reshape(self.kernel_size, self.psi_local_h, self.psi_local_w)
+        local_filter_matrix = local_filter_matrix.reshape(
+            self.kernel_size, self.psi_local_h, self.psi_local_w
+        )
 
-        self.register_buffer("local_filter_matrix", local_filter_matrix, persistent=False)
+        self.register_buffer(
+            "local_filter_matrix", local_filter_matrix, persistent=False
+        )
 
     def get_local_filter_matrix(self):
         """
         Returns the precomputed local convolution filter matrix Psi.
-        Psi parameterizes the kernel function as triangular basis functions 
+        Psi parameterizes the kernel function as triangular basis functions
         evaluated on pairs of points on the convolution's input and output grids,
         such that Psi[l, i, j] is the l-th basis function evaluated on point i in
         the output grid and point j in the input grid.
         """
 
-        return self.local_filter_matrix.permute(0, 2, 1).flip(dims=(-1,-2))
+        return self.local_filter_matrix.permute(0, 2, 1).flip(dims=(-1, -2))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward call. Expects an input of shape batch_size x in_channels x in_shape[0] x in_shape[1].
         """
-        kernel = torch.einsum("kxy,ogk->ogxy", self.get_local_filter_matrix(), self.weight)
+        kernel = torch.einsum(
+            "kxy,ogk->ogxy", self.get_local_filter_matrix(), self.weight
+        )
 
         # padding is rounded down to give the right result when even kernels are applied
         # Check https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html for output shape math
-        h_pad = (self.psi_local_h+1) // 2 - 1
-        w_pad = (self.psi_local_w+1) // 2 - 1
+        h_pad = (self.psi_local_h + 1) // 2 - 1
+        w_pad = (self.psi_local_w + 1) // 2 - 1
         # additional one-sided padding. See https://discuss.pytorch.org/t/question-of-2d-transpose-convolution/99419
         h_pad_out = self.scale_h - (self.psi_local_h // 2 - h_pad) - 1
         w_pad_out = self.scale_w - (self.psi_local_w // 2 - w_pad) - 1
 
-        out = nn.functional.conv_transpose2d(self.q_weight * x, kernel, self.bias, stride=[self.scale_h, self.scale_w], dilation=[1,1], padding=[h_pad, w_pad], output_padding=[h_pad_out, w_pad_out], groups=self.groups)
+        out = nn.functional.conv_transpose2d(
+            self.q_weight * x,
+            kernel,
+            self.bias,
+            stride=[self.scale_h, self.scale_w],
+            dilation=[1, 1],
+            padding=[h_pad, w_pad],
+            output_padding=[h_pad_out, w_pad_out],
+            groups=self.groups,
+        )
 
         return out
