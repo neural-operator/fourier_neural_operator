@@ -51,3 +51,35 @@ class GeneralTensorDataset(Dataset):
 
     def __len__(self):
         return self.sets[0].size(0)
+
+class GeneralKeyedTensorDataset(Dataset):
+    def __init__(self, sets, transforms=None):
+        if transforms is not None:
+            assert len(sets) == len(transforms), "Size mismatch between number of tensors and transforms"
+            assert sets.keys() == transforms.keys(), "Transforms must be keyed to the keys of sets."
+        else:
+            transforms = {key: None for key in sets.keys()}
+
+        self.n = len(sets)
+        size = None
+        for key in sets.keys():
+            if not size:
+                size = sets[key].size(0)
+            else:
+                assert sets[key].size(0) == size, f"Size mismatch between sets on {key}."
+        self.size = size
+
+        self.sets = sets
+        self.transforms = transforms
+
+    def __getitem__(self, index):
+        sample = {}
+        for key, set in self.sets.items():
+            sample[key] = set[index]
+            if self.transforms[key] is not None:
+                sample[key] = self.transforms[key](sample[key])
+            
+        return sample
+
+    def __len__(self):
+        return self.size

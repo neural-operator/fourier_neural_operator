@@ -161,7 +161,6 @@ class DefaultDataProcessor(DataProcessor):
         output = self.model(data_dict["x"])
         output = self.postprocess(output)
         return output, data_dict
-        
 
 
 class IncrementalDataProcessor(torch.nn.Module):
@@ -402,3 +401,4 @@ class MGPatchingDataProcessor(DataProcessor):
         output = self.model(**data_dict)
         output, data_dict = self.postprocess(output, data_dict)
         return output, data_dict
+    
