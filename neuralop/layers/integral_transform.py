@@ -199,10 +199,6 @@ class IntegralTransform(nn.Module):
         else:
             reduction = "mean"
 
-        splits = neighbors["neighbors_row_splits"]
-        if batched:
-            splits = splits.repeat([batch_size] + [1] * splits.ndim)
-
-        out_features = segment_csr(rep_features, splits, reduce=reduction, use_scatter=self.use_torch_scatter)
+        out_features = segment_csr(rep_features, neighbors["neighbors_row_splits"], reduce=reduction, use_scatter=self.use_torch_scatter)
 
         return out_features
