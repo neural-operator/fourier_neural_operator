@@ -7,7 +7,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -28,6 +27,12 @@ jobs:
       - name: Build a binary wheel and a source tarball
         run: |
           python -m build
+      - name: Install neuralop from built wheel and ensure it passes all tests
+        run: |
+          python -m pip uninstall neuraloperator -yyy
+          WHEEL_FILE=$(ls dist/*.whl | head -1)
+          python -m pip install $WHEEL_FILE
+          pytest neuralop
       - name: Store the distribution packages
         uses: actions/upload-artifact@v4
         with:
@@ -60,9 +65,6 @@ jobs:
       name: testpypi
       url: https://test.pypi.org/p/neuraloperator
 
-    permissions:
-      id-token: write
-
     steps:
     - name: Download all the dists
       uses: actions/download-artifact@v4
@@ -73,7 +75,8 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         repository-url: https://test.pypi.org/legacy/
-
+        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+  
   publish-to-pypi:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
