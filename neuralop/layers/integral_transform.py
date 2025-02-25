@@ -68,14 +68,12 @@ class IntegralTransform(nn.Module):
         channel_mlp_layers=None,
         channel_mlp_non_linearity=F.gelu,
         transform_type="linear",
-        use_torch_scatter=True,
     ):
         super().__init__()
 
         assert channel_mlp is not None or channel_mlp_layers is not None
 
         self.transform_type = transform_type
-        self.use_torch_scatter = use_torch_scatter
 
         if (
             self.transform_type != "linear_kernelonly"
@@ -188,21 +186,12 @@ class IntegralTransform(nn.Module):
 
         if weights is not None:
             assert weights.ndim == 1, "Weights must be of dimension 1 in all cases"
-            nbr_weights = weights[neighbors["neighbors_index"]]
-            # repeat weights along batch dim if batched
-            if batched:
-                nbr_weights = nbr_weights.repeat(
-                    [batch_size] + [1] * nbr_weights.ndim
-                )
+            nbr_weights = weights[neighbors["neighbors_index"]]        
             rep_features = nbr_weights * rep_features
             reduction = "sum"
         else:
             reduction = "mean"
 
-        splits = neighbors["neighbors_row_splits"]
-        if batched:
-            splits = splits.repeat([batch_size] + [1] * splits.ndim)
-
-        out_features = segment_csr(rep_features, splits, reduce=reduction, use_scatter=self.use_torch_scatter)
+        out_features = segment_csr(rep_features, neighbors["neighbors_row_splits"], reduce=reduction)
 
         return out_features

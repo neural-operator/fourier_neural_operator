@@ -2,13 +2,12 @@ from typing import Literal
 import importlib
 
 import torch
-from torch import einsum
 
 def segment_csr(
     src: torch.Tensor,
-    indptr: torch.Tensor,
+    neighborhood_splits: torch.Tensor,
     reduce: Literal["mean", "sum"],
-    use_scatter=True,
+    eps: float=1e-7,
 ):
     """segment_csr reduces all entries of a CSR-formatted
     matrix by summing or averaging over neighbors.
@@ -27,65 +26,45 @@ def segment_csr(
     ----------
     src : torch.Tensor
         tensor of features for each point
-    indptr : torch.Tensor
+    neighborhood_splits : torch.Tensor
         splits representing start and end indices
         of each neighborhood in src
     reduce : Literal['mean', 'sum']
         how to reduce a neighborhood. if mean,
         reduce by taking the average of all neighbors.
         Otherwise take the sum.
+    eps : float
+        Tiny perturbation to prevent div by zero in scaling
+        neigborhoods if a particular neighborhood is empty
+
     """
     if reduce not in ["mean", "sum"]:
         raise ValueError("reduce must be one of 'mean', 'sum'")
+    
+    device = src.device
 
-    if (
-        importlib.util.find_spec("torch_scatter") is not None
-        and use_scatter
-    ):
-        """only import torch_scatter when cuda is available"""
-        import torch_scatter.segment_csr as scatter_segment_csr
-
-        return scatter_segment_csr(src, indptr, reduce=reduce)
-
+    if src.ndim == 3:
+        point_dim = 1
     else:
-        if use_scatter:
-            print("Warning: use_scatter is True but torch_scatter is not properly built. \
-                  Defaulting to naive PyTorch implementation")
-        # if batched, shape [b, n_reps, channels]
-        # otherwise shape [n_reps, channels]
-        if src.ndim == 3:
-            batched = True
-            point_dim = 1
-        else:
-            batched = False
-            point_dim = 0
+        point_dim = 0
 
-        # if batched, shape [b, n_out, channels]
-        # otherwise shape [n_out, channels]
-        output_shape = list(src.shape)
-        n_out = indptr.shape[point_dim] - 1
-        output_shape[point_dim] = n_out
+    # if batched, shape [b, n_out, channels]
+    # otherwise shape [n_out, channels]    
+    n_in = src.shape[point_dim]
 
-        out = torch.zeros(output_shape, device=src.device)
+    n_reps = neighborhood_splits[1:] - neighborhood_splits[:-1]
 
-        for i in range(n_out):
-            # reduce all indices pointed to in indptr from src into out
-            if batched:
-                from_idx = (slice(None), slice(indptr[0,i], indptr[0,i+1]))
-                ein_str = 'bio->bo'
-                start = indptr[0,i]
-                n_nbrs = indptr[0,i+1] - start
-                to_idx = (slice(None), i)
-            else:
-                from_idx = slice(indptr[i], indptr[i+1])
-                ein_str = 'io->o'
-                start = indptr[i]
-                n_nbrs = indptr[i+1] - start
-                to_idx = i
-            src_from = src[from_idx]
-            if n_nbrs > 0:
-                to_reduce = einsum(ein_str, src_from)
-                if reduce == "mean":
-                    to_reduce /= n_nbrs
-                out[to_idx] += to_reduce
-        return out
+    inds = torch.arange(n_in).unsqueeze(0).to(device)
+    mask = (inds >= neighborhood_splits[:-1].unsqueeze(1)) & (inds < neighborhood_splits[1:].unsqueeze(1))
+
+    # add a batch dim to the mask if src is batched
+    if src.ndim == 3:
+        mask = mask.unsqueeze(0)
+    out = (mask.unsqueeze(-1).to(src.dtype) * src.unsqueeze(point_dim)).sum(dim=point_dim+1)
+
+    if reduce == 'mean':
+        # scale the outputs by number of reduced neighbors, add eps to avoid div by zero
+        scale = (1 / (n_reps + eps)).unsqueeze(0).T
+        out = out * scale
+
+    return out

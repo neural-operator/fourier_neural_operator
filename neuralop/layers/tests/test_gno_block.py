@@ -14,7 +14,7 @@ mlp_hidden_layers = [16,16,16]
 
 # data parameters
 n_in = 100
-n_out = 100
+n_out = 50
 
 # test open3d mode if built
 try:
@@ -28,6 +28,19 @@ if open3d_built:
 else:
     use_open3d_parametrize = [False]
 
+# Test torch_scatter util if built
+try:
+    from torch_scatter import segment_csr
+    torch_scatter_built = True
+except:
+    torch_scatter_built = False
+
+if torch_scatter_built:
+    use_torch_scatter_parametrize = [True, False]
+else:
+    use_torch_scatter_parametrize = [False]
+
+
 @pytest.mark.parametrize("batch_size", [1,4])
 @pytest.mark.parametrize("gno_coord_dim", [2,3])
 @pytest.mark.parametrize("gno_pos_embed_type", ['nerf', 'transformer', None])
@@ -35,7 +48,8 @@ else:
     "gno_transform_type", ["linear", "nonlinear_kernelonly", "nonlinear"]
 )
 @pytest.mark.parametrize('use_open3d', use_open3d_parametrize)
-def test_gno_block(gno_transform_type, gno_coord_dim, gno_pos_embed_type, batch_size, use_open3d):
+@pytest.mark.parametrize('use_torch_scatter', use_torch_scatter_parametrize)
+def test_gno_block(gno_transform_type, gno_coord_dim, gno_pos_embed_type, batch_size, use_open3d, use_torch_scatter):
     if torch.backends.cuda.is_built():
         device = torch.device("cuda:0")
     else:
@@ -52,7 +66,8 @@ def test_gno_block(gno_transform_type, gno_coord_dim, gno_pos_embed_type, batch_
         radius=0.25,
         channel_mlp_layers=mlp_hidden_layers,
         transform_type=gno_transform_type,
-        use_open3d_neighbor_search=use_open3d
+        use_open3d_neighbor_search=use_open3d,
+        use_torch_scatter_reduce=use_torch_scatter
     ).to(device)
 
     # create input geometry and output queries

@@ -191,7 +191,6 @@ class GNOBlock(nn.Module):
         self.integral_transform = IntegralTransform(
             channel_mlp=self.channel_mlp,
             transform_type=transform_type,
-            use_torch_scatter=use_torch_scatter_reduce
         )
 
     def forward(self, y, x, f_y=None, reduction='sum'):

@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import pytest
 
-from ..neighbor_search import native_neighbor_search
+from ..neighbor_search import native_neighbor_search, spatial_hashing_neighbor_search
 
 # Manually-calculated CSR list of neighbors 
 # in a 5x5 grid on [0,1] X [0,1] for radius=0.3
@@ -28,6 +28,14 @@ def test_fallback_nb_search():
     mesh_grid = np.stack(np.meshgrid(*[np.linspace(0,1,5) for _ in range(2)], indexing="ij"), axis=-1)
     coords = torch.Tensor(mesh_grid.reshape(-1,2)) # reshape into n**d x d coord points
     return_dict = native_neighbor_search(data=coords, queries=coords, radius=0.3)
+    
+    assert return_dict['neighbors_index'].tolist() == indices
+    assert return_dict['neighbors_row_splits'].tolist() == splits
+
+def test_hashed_nb_search():
+    mesh_grid = np.stack(np.meshgrid(*[np.linspace(0,1,5) for _ in range(2)], indexing="ij"), axis=-1)
+    coords = torch.Tensor(mesh_grid.reshape(-1,2)) # reshape into n**d x d coord points
+    return_dict = spatial_hashing_neighbor_search(data=coords, queries=coords, radius=0.3)
     
     assert return_dict['neighbors_index'].tolist() == indices
     assert return_dict['neighbors_row_splits'].tolist() == splits

@@ -101,3 +101,44 @@ def native_neighbor_search(data: torch.Tensor, queries: torch.Tensor, radius: fl
     nbr_dict['neighbors_index'] = nbr_indices.long().to(queries.device)
     nbr_dict['neighbors_row_splits'] = splits.long()
     return nbr_dict
+
+def spatial_hashing_neighbor_search(data: torch.Tensor, queries: torch.Tensor, radius: float):
+    """
+    Faster native PyTorch implementation of a neighborhood search
+    between two arbitrary coordinate meshes. Hashes the points into 
+    grid cells and only performs distance checks on points in adjacent grid cells.
+     
+    Parameters
+    -----------
+    data : torch.Tensor
+        vector of data points from which to find neighbors
+        shape (n_in, d)
+    queries : torch.Tensor
+        centers of neighborhoods
+        shape (n_out, d)
+    radius : float
+        size of each neighborhood
+    """
+    n_dim = data.shape[-1]
+    # by choosing a cell size of 2* radius, we ensure that only points
+    # in adjacent cells must be compared, thereby limiting the number of checks
+    # to perform. 
+    cell_size = 2 * radius 
+
+    individual_box_lims = torch.stack([
+        torch.min(data, dim=0).values, torch.max(data, dim=0).values,
+        torch.min(queries, dim=0).values, torch.max(queries, dim=0).values
+        ])
+    
+    box_min = torch.min(individual_box_lims, dim=0).values
+    box_max = torch.max(individual_box_lims, dim=0).values
+
+    total_num_cells = torch.ceil((box_max - box_min) / (2 * radius))
+    print(total_num_cells)
+    
+    cell_coords = torch.floor(torch.cat([data, queries], dim=0) / (2 * radius))
+    #print(cell_coords)
+
+    adj_cells = None
+
+    # next get the mapping of adjacent cells for each cell
