@@ -45,29 +45,49 @@ class FCLegendre(nn.Module):
 
         return self.ext_mat
 
-    def extend_left_right(self, x):
+    def extend_left_right(self, x, one_sided):
         right_bnd = x[...,-self.n:]
         left_bnd = x[...,0:self.n]
-
         y = torch.cat((right_bnd, left_bnd), dim=-1)
-        ext = torch.matmul(y, self.ext_mat_T)
-
-        return torch.cat((x, ext), dim=-1)
+        
+        if x.is_complex():
+            ext = torch.matmul(y, self.ext_mat_T + 0j)
+        else:
+            ext = torch.matmul(y, self.ext_mat_T)
+        
+        if one_sided:
+            return torch.cat((x, ext), dim=-1)
+        else:
+            return torch.cat((ext[...,self.d//2:], x, ext[...,:self.d//2]), dim=-1)
     
-    def extend_top_bottom(self, x):
+    
+    def extend_top_bottom(self, x, one_sided):
         bottom_bnd = x[...,-self.n:,:]
         top_bnd = x[...,0:self.n,:]
-
         y = torch.cat((bottom_bnd, top_bnd), dim=-2)
-        ext = torch.matmul(self.ext_mat, y)
+        
+        if x.is_complex():
+            ext = torch.matmul(self.ext_mat, y + 0j)
+        else:
+            ext = torch.matmul(self.ext_mat, y)
+        
+        if one_sided:
+            return torch.cat((x, ext), dim=-2)
+        else:
+            return torch.cat((ext[...,self.d//2:,:], x, ext[...,:self.d//2,:]), dim=-2)
 
-        return torch.cat((x, ext), dim=-2)
     
-    def extend2d(self, x):
-        x = self.extend_left_right(x)
-        x = self.extend_top_bottom(x)
+    def extend1d(self, x, one_sided):
+        return self.extend_left_right(x, one_sided)
+    
+    def extend2d(self, x, one_sided):
+        x = self.extend_left_right(x, one_sided)
+        x = self.extend_top_bottom(x, one_sided)
 
         return x
     
-    def forward(self, x):
-        return self.extend2d(x)
+    def forward(self, x, dim=2, one_sided=True):
+        if dim == 1:
+            return self.extend1d(x, one_sided)
+        if dim == 2:
+            return self.extend2d(x, one_sided)
