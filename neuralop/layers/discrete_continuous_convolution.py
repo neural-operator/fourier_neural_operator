@@ -10,13 +10,26 @@ from functools import partial
 
 # import the base class from torch-harmonics
 try:
-    from torch_harmonics.quadrature import _precompute_grid
-    from torch_harmonics.filter_basis import (PiecewiseLinearFilterBasis, 
-                                            MorletFilterBasis, 
-                                            ZernikeFilterBasis)
-except ModuleNotFoundError:
-    print("Error: trying to import DISCO convolutions without optional dependency torch-harmonics. ",
-          "Please install with `pip install torch-harmonics` and retry.")
+    from torch_harmonics import PiecewiseLinearFilterBasis, MorletFilterBasis
+    HARMONICS_AVAILABLE = True
+except ImportError:
+    HARMONICS_AVAILABLE = False
+    print("Warning: torch-harmonics not found. DISCO convolutions will not be available.")
+    PiecewiseLinearFilterBasis = None
+    MorletFilterBasis = None
+
+if HARMONICS_AVAILABLE:
+    FILTER_BASIS = {
+        'piecewise_linear': PiecewiseLinearFilterBasis,
+        'morlet': MorletFilterBasis,
+    }
+    
+    class EquidistantDiscreteContinuousConv2d:
+        # ... existing implementation ...
+        pass
+else:
+    FILTER_BASIS = {}
+    EquidistantDiscreteContinuousConv2d = None
 
 basis_type_classes = {
     'piecewise_linear': PiecewiseLinearFilterBasis,

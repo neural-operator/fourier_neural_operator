@@ -335,15 +335,23 @@ class SpectralConv(BaseSpectralConv):
 
         tensor_kwargs = decomposition_kwargs if decomposition_kwargs is not None else {}
 
-        # Create/init spectral weight tensor
-
+        # Determine weight dtype based on fno_block_precision
+        self.weight_dtype = {
+            "full": torch.cfloat,
+            "half": torch.chalf,
+            "mixed": torch.chalf
+        }.get(fno_block_precision, torch.cfloat)
+        
+        # Create/init spectral weight tensor with specified precision
         if factorization is None:
-            self.weight = torch.tensor(weight_shape, dtype=torch.cfloat)
+            self.weight = torch.empty(weight_shape, dtype=self.weight_dtype)
+            with torch.no_grad():
+                self.weight.normal_(0, init_std)
         else:
             self.weight = FactorizedTensor.new(weight_shape, rank=self.rank, 
                                      factorization=factorization, fixed_rank_modes=fixed_rank_modes,
-                                     **tensor_kwargs, dtype=torch.cfloat) 
-        self.weight.normal_(0, init_std)
+                                     **tensor_kwargs, dtype=self.weight_dtype)
+            self.weight.normal_(0, init_std)
         
         self._contract = get_contract_fun(
             self.weight, implementation=implementation, separable=separable
@@ -405,7 +413,8 @@ class SpectralConv(BaseSpectralConv):
         tensorized_spectral_conv(x)
         """
         batchsize, channels, *mode_sizes = x.shape
-
+        device = x.device  # Store device at the start
+        
         fft_size = list(mode_sizes)
         if not self.complex_data:
             fft_size[-1] = fft_size[-1] // 2 + 1  # Redundant last coefficient in real spatial data
@@ -435,8 +444,9 @@ class SpectralConv(BaseSpectralConv):
             out_dtype = torch.chalf
         else:
             out_dtype = torch.cfloat
+            
         out_fft = torch.zeros([batchsize, self.out_channels, *fft_size],
-                              device=x.device, dtype=out_dtype)
+                            dtype=out_dtype, device=device)  # Use stored device
         
         # if current modes are less than max, start indexing modes closer to the center of the weight tensor
         starts = [(max_modes - min(size, n_mode)) for (size, n_mode, max_modes) in zip(fft_size, self.n_modes, self.max_n_modes)]
@@ -482,24 +492,22 @@ class SpectralConv(BaseSpectralConv):
             slices_x[-1] = slice(None, weight.shape[-1])
         else:
             slices_x[-1] = slice(None)
-        
         out_fft[slices_x] = self._contract(x[slices_x], weight, separable=self.separable)
-
         if self.resolution_scaling_factor is not None and output_shape is None:
             mode_sizes = tuple([round(s * r) for (s, r) in zip(mode_sizes, self.resolution_scaling_factor)])
 
         if output_shape is not None:
             mode_sizes = output_shape
-
+        
         if self.order > 1:
             out_fft = torch.fft.fftshift(out_fft, dim=fft_dims[:-1])
         
         if self.complex_data:
-            x = torch.fft.ifftn(out_fft, s=mode_sizes, dim=fft_dims, norm=self.fft_norm)
+            out_fft = torch.fft.ifftn(out_fft, s=mode_sizes, dim=fft_dims, norm=self.fft_norm)
         else:
-            x = torch.fft.irfftn(out_fft, s=mode_sizes, dim=fft_dims, norm=self.fft_norm)
+            out_fft = torch.fft.irfftn(out_fft, s=mode_sizes, dim=fft_dims, norm=self.fft_norm)
 
         if self.bias is not None:
-            x = x + self.bias
-
-        return x
+            out_fft.add_(self.bias)
+        
+        return out_fft

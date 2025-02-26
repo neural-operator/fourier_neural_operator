@@ -8,7 +8,12 @@ import torch.nn.functional as F
 from .channel_mlp import ChannelMLP
 from .fno_block import SubModule
 from .differential_conv import FiniteDifferenceConvolution
-from .discrete_continuous_convolution import EquidistantDiscreteContinuousConv2d
+try:
+    from .discrete_continuous_convolution import EquidistantDiscreteContinuousConv2d
+    DISCO_AVAILABLE = True
+except (ImportError, NameError, AttributeError):
+    DISCO_AVAILABLE = False
+    EquidistantDiscreteContinuousConv2d = None
 from .normalization_layers import AdaIN, InstanceNorm
 from .skip_connections import skip_connection
 from .spectral_convolution import SpectralConv
@@ -365,6 +370,13 @@ class LocalNOBlocks(nn.Module):
                 f"Got norm={norm} but expected None or one of "
                 "[instance_norm, group_norm, ada_in]"
             )
+
+        if 'use_disco' in kwargs and kwargs['use_disco']:
+            if not DISCO_AVAILABLE:
+                raise ImportError(
+                    "DISCO convolutions requested but torch-harmonics is not available. "
+                    "Please install with `pip install torch-harmonics` to use DISCO convolutions."
+                )
 
     def set_ada_in_embeddings(self, *embeddings):
         """Sets the embeddings of each Ada-IN norm layers

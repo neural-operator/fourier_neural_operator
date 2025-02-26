@@ -157,10 +157,21 @@ class AdamW(Optimizer):
                 # Decay the first and second moment running average coefficient
                 # In-place operations to update the averages at the same time
                 exp_avg.mul_(beta1).add_(grad, alpha=(1.0 - beta1))
-                if torch.is_complex(grad):
-                    exp_avg_sq.mul_(beta2).addcmul_(grad, grad.conj(), value=1.0 - beta2)
+                
+                if grad.dtype == torch.complex32:
+                    # Use basic operations instead of addcmul_ for complex32
+                    exp_avg_sq.mul_(beta2)
+                    if torch.is_complex(grad):
+                        exp_avg_sq.add_((grad * grad.conj()) * (1.0 - beta2))
+                    else:
+                        exp_avg_sq.add_((grad * grad) * (1.0 - beta2))
                 else:
-                    exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
+                    # Original logic for other dtypes
+                    if torch.is_complex(grad):
+                        exp_avg_sq.mul_(beta2).addcmul_(grad, grad.conj(), value=1.0 - beta2)
+                    else:
+                        exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
+                
                 denom = exp_avg_sq.sqrt().add_(group["eps"])
 
                 step_size = group["lr"]
