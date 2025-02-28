@@ -311,7 +311,7 @@ class Trainer:
                       eval_metrics=all_metrics)
         return all_metrics
     
-    def evaluate(self, loss_dict, data_loader, log_prefix="", epoch=None):
+    def evaluate(self, loss_dict, data_loader, log_prefix="", epoch=None, mode="next_step",max_steps=None):
         """Evaluates the model on a dictionary of losses
 
         Parameters
@@ -325,6 +325,12 @@ class Trainer:
         epoch : int | None
             current epoch. Used when logging both train and eval
             default None
+        mode : Literal {'next_step', 'autoregression'}
+            if 'next_step', performs standard evaluation
+            if 'autoregression' loops through `max_steps` steps
+        max_steps : int, optional
+            max number of steps for autoregressive rollout. 
+            if `mode == 'autoregression'`, you must pass a value
         Returns
         -------
         errors : dict
@@ -349,6 +355,9 @@ class Trainer:
                     warnings.warn(f"{eval_loss.reduction=}. This means that the loss is "
                                 "initialized to average across the batch dim. The Trainer "
                                 "expects losses to sum across the batch dim.")
+                    
+        if mode == "autoregression":
+            assert  max_steps is not None, "Must provide a value for max_steps when in autoregressive mode."
 
         self.n_samples = 0
         with torch.no_grad():
@@ -356,7 +365,12 @@ class Trainer:
                 return_output = False
                 if idx == len(data_loader) - 1:
                     return_output = True
-                eval_step_losses, outs = self.eval_one_batch(sample, loss_dict, return_output=return_output)
+                if mode == "next_step":
+                    eval_step_losses, outs = self.eval_one_batch(sample, loss_dict, return_output=return_output)
+                elif mode == "autoregression":
+                    eval_step_losses, outs = self.eval_one_batch_autoreg(sample, loss_dict,
+                                                                         return_output=return_output,
+                                                                         max_steps=max_steps)
 
                 for loss_name, val_loss in eval_step_losses.items():
                     errors[f"{log_prefix}_{loss_name}"] += val_loss
@@ -416,7 +430,6 @@ class Trainer:
                 for k, v in sample.items()
                 if torch.is_tensor(v)
             }
-
         self.n_samples += sample["y"].shape[0]
 
         if self.mixed_precision:
@@ -490,6 +503,67 @@ class Trainer:
             val_loss = loss(out, **sample)
             eval_step_losses[loss_name] = val_loss
         
+        if return_output:
+            return eval_step_losses, out
+        else:
+            return eval_step_losses, None
+        
+    def eval_one_batch_autoreg(self,
+                       sample: dict,
+                       eval_losses: dict,
+                       return_output: bool=False,
+                       max_steps: int=1):
+        """eval_one_batch runs inference on one batch
+        and returns eval_losses for that batch.
+
+        Parameters
+        ----------
+        sample : dict
+            data batch dictionary
+        eval_losses : dict
+            dictionary of named eval metrics
+        return_outputs : bool
+            whether to return model outputs for plotting
+            by default False
+        max_steps: int
+            number of timesteps to roll out
+            typically the full trajectory length
+        Returns
+        -------
+        eval_step_losses : dict
+            keyed "loss_name": step_loss_value for each loss name
+        outputs: torch.Tensor | None
+            optionally returns batch outputs
+        """
+        eval_step_losses = {loss_name: 0. for loss_name in eval_losses.keys()}
+        eval_rollout_losses = {loss_name: 0. for loss_name in eval_losses.keys()}
+
+        for t in range(0, max_steps-1):
+            print(f"rollout: {t}/{max_steps}", end="\r")
+            if self.data_processor is not None:
+                sample = self.data_processor.preprocess(sample, step=t)
+            else:
+                # load data to device if no preprocessor exists
+                sample = {
+                    k: v.to(self.device)
+                    for k, v in sample.items()
+                    if torch.is_tensor(v)
+                }
+            self.n_samples += sample["y"].shape[0]
+
+            out = self.model(**sample)
+            
+            '''if self.debug:
+                x = sample["x"]
+                print(f"eval {x.shape=} {out.shape=}")'''
+            
+            if self.data_processor is not None:
+                out, sample = self.data_processor.postprocess(out, sample, step=t)
+          
+            for loss_name, loss in eval_losses.items():
+                step_loss = loss(out, **sample)
+                eval_step_losses[loss_name] += step_loss
+
         if return_output:
             return eval_step_losses, out
         else:

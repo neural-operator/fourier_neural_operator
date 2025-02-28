@@ -1,0 +1,89 @@
+default: &DEFAULT
+
+  #General
+  # For computing compression
+  n_params_baseline: None #If None, will be computed
+  verbose: True
+  arch: 'fno'
+  debug: False
+
+  #Distributed computing
+  distributed:
+    use_distributed: False
+    wireup_info: 'mpi'
+    wireup_store: 'tcp'
+    model_parallel_size: 2
+    seed: 666
+
+  # FNO related
+  fno:
+    data_channels: 11
+    out_channels: 11
+    n_modes: [32,32]
+    hidden_channels: 64
+    projection_channel_ratio: 4
+    n_layers: 4
+    domain_padding: 0. #0.078125
+    domain_padding_mode: 'one-sided' #symmetric
+    fft_norm: 'forward'
+    norm: None
+    skip: 'linear'
+    implementation: 'reconstructed'
+    
+    use_channel_mlp: 1
+    channel_mlp_expansion: 0.5
+    channel_mlp_dropout: 0
+
+    separable: False
+    factorization: None
+    rank: 1.0
+    fixed_rank_modes: None
+    dropout: 0.0
+    tensor_lasso_penalty: 0.0
+    joint_factorization: False
+    stabilizer: None # or 'tanh'
+
+  # Optimizer
+  opt:
+    n_epochs: 2
+    learning_rate: 3e-4
+    training_loss: 'h1'
+    weight_decay: 1e-4
+    amp_autocast: False
+
+    scheduler_T_max: 500 # For cosine only, typically take n_epochs
+    scheduler_patience: 50 # For ReduceLROnPlateau only
+    scheduler: 'StepLR' # Or 'CosineAnnealingLR' OR 'ReduceLROnPlateau'
+    step_size: 100
+    gamma: 0.5
+
+  # Dataset related
+  data:
+    temporal_resolution: 20
+    T: 10
+    timestep: 1
+    root: ~/data/the_well
+    n_train: 10
+    batch_size: 1
+    n_test: 10 #, 1000] #, 1000]
+    test_batch_size: 1 #, 4] #, 1]
+    input_timesteps: 1
+    output_timesteps: 1 #15
+    max_rollout_len: 100
+
+  # Patching
+  patching:
+    levels: 0 #1
+    padding: 0 #0.078125
+    stitching: False #True
+
+  # Weights and biases
+  wandb:
+    log: False
+    name: None # If None, config will be used but you can override it here
+    group: '' 
+    project: "train_ns"
+    entity: "dhpitt" # put your username here
+    sweep: False
+    log_output: False
+    eval_interval: 1
