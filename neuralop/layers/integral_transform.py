@@ -68,12 +68,15 @@ class IntegralTransform(nn.Module):
         channel_mlp_layers=None,
         channel_mlp_non_linearity=F.gelu,
         transform_type="linear",
+        weighting_fn=None,
+        reduction='sum',
         use_torch_scatter=True,
     ):
         super().__init__()
 
         assert channel_mlp is not None or channel_mlp_layers is not None
 
+        self.reduction = reduction
         self.transform_type = transform_type
         self.use_torch_scatter = use_torch_scatter
 
@@ -92,6 +95,8 @@ class IntegralTransform(nn.Module):
             self.channel_mlp = LinearChannelMLP(layers=channel_mlp_layers, non_linearity=channel_mlp_non_linearity)
         else:
             self.channel_mlp = channel_mlp
+        
+        self.weighting_fn = weighting_fn
             
 
     """"
@@ -186,18 +191,23 @@ class IntegralTransform(nn.Module):
         if f_y is not None and self.transform_type != "nonlinear_kernelonly":
             rep_features = rep_features * in_features
 
-        if weights is not None:
-            assert weights.ndim == 1, "Weights must be of dimension 1 in all cases"
-            nbr_weights = weights[neighbors["neighbors_index"]]
+        
+        nbr_weights = neighbors.get("weights")
+        if nbr_weights is None and self.weighting_fn is not None:
+            raise KeyError("if a weighting function is provided, your neighborhoods must contain weights.")
+
+        if self.weighting_fn is not None:
+            nbr_weights = self.weighting_fn(nbr_weights)
             # repeat weights along batch dim if batched
             if batched:
                 nbr_weights = nbr_weights.repeat(
                     [batch_size] + [1] * nbr_weights.ndim
                 )
+                nbr_weights = nbr_weights.unsqueeze(-1)
             rep_features = nbr_weights * rep_features
-            reduction = "sum"
+            reduction = "sum" # Force sum reduction for weighted GNO layers
         else:
-            reduction = "mean"
+            reduction = self.reduction
 
         splits = neighbors["neighbors_row_splits"]
         if batched:

@@ -417,7 +417,10 @@ class Trainer:
                 if torch.is_tensor(v)
             }
 
-        self.n_samples += sample["y"].shape[0]
+        if isinstance(sample["y"], torch.Tensor):
+            self.n_samples += sample["y"].shape[0]
+        else:
+            self.n_samples += 1
 
         if self.mixed_precision:
             with torch.autocast(device_type=self.autocast_device_type):
@@ -425,7 +428,7 @@ class Trainer:
         else:
             out = self.model(**sample)
         
-        if self.epoch == 0 and idx == 0 and self.verbose:
+        if self.epoch == 0 and idx == 0 and self.verbose and isinstance(out, torch.Tensor):
             print(f"Raw outputs of shape {out.shape}")
 
         if self.data_processor is not None:
