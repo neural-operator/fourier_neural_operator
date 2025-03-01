@@ -79,7 +79,7 @@ class IncrementalFNOTrainer(Trainer):
         if self.incremental_grad:
             self.grad_explained()
 
-    def train_one_epoch(self, epoch, train_loader, training_loss):
+    def train_one_epoch(self, epoch, train_loader, training_loss, optimizer=None, scheduler=None, regularizer=None):
         """train_one_epoch inherits from the base Trainer's method
             and adds the computation of the incremental-FNO algorithm
             before returning the training epoch's metrics. 
@@ -89,9 +89,18 @@ class IncrementalFNOTrainer(Trainer):
         epoch : int
             epoch of training
         train_loader : DataLoader
+            dataloader of training examples
         training_loss : callable
             loss function to train with
-
+        optimizer : torch.optim.Optimizer, optional
+            optimizer to use in training
+            if None, and self.optimizer is not set, this will throw an error.
+        scheduler : torch.optim.lr_scheduler.LRScheduler, optional
+            LR scheduler to use in training, by default None
+            if None, and self.scheduler is not set, this will throw an error.
+        regularizer : nn.Module, optional
+            regularizer to use in training, by default None
+        
         Returns
         -------
         train_err, avg_loss, avg_lasso_loss, epoch_train_time
@@ -101,7 +110,7 @@ class IncrementalFNOTrainer(Trainer):
             self.data_processor.epoch = epoch
 
         train_err, avg_loss, avg_lasso_loss, epoch_train_time =\
-              super().train_one_epoch(epoch, train_loader, training_loss)
+              super().train_one_epoch(epoch, train_loader, training_loss, optimizer, scheduler, regularizer)
         self.incremental_update(avg_loss)
 
         return train_err, avg_loss, avg_lasso_loss, epoch_train_time

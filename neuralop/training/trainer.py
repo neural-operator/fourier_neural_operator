@@ -200,7 +200,7 @@ class Trainer:
         
         for epoch in range(self.start_epoch, self.n_epochs):
             train_err, avg_loss, avg_lasso_loss, epoch_train_time =\
-                  self.train_one_epoch(epoch, train_loader, training_loss)
+                  self.train_one_epoch(epoch, train_loader, training_loss, self.optimizer, self.scheduler, self.regularizer)
             epoch_metrics = dict(
                 train_err=train_err,
                 avg_loss=avg_loss,
@@ -228,7 +228,7 @@ class Trainer:
 
         return epoch_metrics
 
-    def train_one_epoch(self, epoch, train_loader, training_loss):
+    def train_one_epoch(self, epoch, train_loader, training_loss, optimizer=None, scheduler=None, regularizer=None):
         """train_one_epoch trains self.model on train_loader
         for one epoch and returns training metrics
 
@@ -238,14 +238,30 @@ class Trainer:
             epoch number
         train_loader : torch.utils.data.DataLoader
             data loader of train examples
-        test_loaders : dict
-            dict of test torch.utils.data.DataLoader objects
+        training_loss : callable
+            training objective
+        optimizer : torch.optim.Optimizer, optional
+            optimizer to use in training
+            if None, and self.optimizer is not set, this will throw an error.
+        scheduler : torch.optim.lr_scheduler.LRScheduler, optional
+            LR scheduler to use in training, by default None
+            if None, and self.scheduler is not set, this will throw an error.
+        regularizer : nn.Module, optional
+            regularizer to use in training, by default None
 
         Returns
         -------
         all_errors
             dict of all eval metrics for the last epoch
         """
+
+        if optimizer is None:
+            optimizer = self.optimizer
+        if scheduler is None:
+            scheduler = self.scheduler
+        if regularizer is None:
+            regularizer = self.regularizer
+
         self.on_epoch_start(epoch)
         avg_loss = 0
         avg_lasso_loss = 0
@@ -262,30 +278,30 @@ class Trainer:
             
             loss = self.train_one_batch(idx, sample, training_loss)
             loss.backward()
-            self.optimizer.step()
+            optimizer.step()
 
             train_err += loss.item()
             with torch.no_grad():
                 avg_loss += loss.item()
-                if self.regularizer:
-                    avg_lasso_loss += self.regularizer.loss
+                if regularizer:
+                    avg_lasso_loss += regularizer.loss
 
-        if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-            self.scheduler.step(train_err)
+        if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+            scheduler.step(train_err)
         else:
-            self.scheduler.step()
+            scheduler.step()
 
         epoch_train_time = default_timer() - t1
 
         train_err /= len(train_loader)
         avg_loss /= self.n_samples
-        if self.regularizer:
+        if regularizer:
             avg_lasso_loss /= self.n_samples
         else:
             avg_lasso_loss = None
         
         lr = None
-        for pg in self.optimizer.param_groups:
+        for pg in optimizer.param_groups:
             lr = pg["lr"]
         if self.verbose and epoch % self.eval_interval == 0:
             self.log_training(
