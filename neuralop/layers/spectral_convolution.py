@@ -17,6 +17,18 @@ tl.set_backend("pytorch")
 use_opt_einsum("optimal")
 einsum_symbols = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
+# By default, we guard calls to torch.fft to disable automatic mixed-precision:
+# ```
+# with torch.autocast(enabled=False, device_type='cuda'):
+#     x = torch.fft.fftn(x, norm=self.fft_norm, dim=fft_dims)
+# ```
+# We do this because there's currently a documented issue with fp32 on CUDA
+# which adds a banding artifact when the input size is a power of 2. The CUFFT 
+# team is currently investigating. In the meantime, if you'd like to enable 
+# CUFFT with automatic mixed-precision, set the env var ENABLE_AMP_CUFFT=1
+
+import os
+enable_amp_cufft = os.getenv('ENABLE_AMP_CUFFT', False)
 
 def _contract_dense(x, weight, separable=False):
     order = tl.ndim(x)
@@ -415,10 +427,20 @@ class SpectralConv(BaseSpectralConv):
             x = x.half()
 
         if self.complex_data:
-            x = torch.fft.fftn(x, norm=self.fft_norm, dim=fft_dims)
+            # disable autocast on cuda for FFT
+            if enable_amp_cufft:
+                x = torch.fft.fftn(x, norm=self.fft_norm, dim=fft_dims)
+            else:
+                with torch.autocast(enabled=False, device_type='cuda'):
+                    x = torch.fft.fftn(x, norm=self.fft_norm, dim=fft_dims)
             dims_to_fft_shift = fft_dims
         else: 
-            x = torch.fft.rfftn(x, norm=self.fft_norm, dim=fft_dims)
+            # disable autocast on cuda for FFT
+            if enable_amp_cufft:
+                x = torch.fft.rfftn(x, norm=self.fft_norm, dim=fft_dims)
+            else:
+                with torch.autocast(enabled=False, device_type='cuda'):
+                    x = torch.fft.rfftn(x, norm=self.fft_norm, dim=fft_dims)
             # When x is real in spatial domain, the last half of the last dim is redundant.
             # See :ref:`fft_shift_explanation` for discussion of the FFT shift.
             dims_to_fft_shift = fft_dims[:-1] 
@@ -495,9 +517,19 @@ class SpectralConv(BaseSpectralConv):
             out_fft = torch.fft.fftshift(out_fft, dim=fft_dims[:-1])
         
         if self.complex_data:
-            x = torch.fft.ifftn(out_fft, s=mode_sizes, dim=fft_dims, norm=self.fft_norm)
+            # disable autocast on cuda for FFT
+            if enable_amp_cufft:
+                x = torch.fft.ifftn(out_fft, s=mode_sizes, dim=fft_dims, norm=self.fft_norm)
+            else:
+                with torch.autocast(enabled=False, device_type='cuda'):
+                    x = torch.fft.ifftn(out_fft, s=mode_sizes, dim=fft_dims, norm=self.fft_norm)
         else:
-            x = torch.fft.irfftn(out_fft, s=mode_sizes, dim=fft_dims, norm=self.fft_norm)
+            # disable autocast on cuda for FFT
+            if enable_amp_cufft:
+                x = torch.fft.irfftn(out_fft, s=mode_sizes, dim=fft_dims, norm=self.fft_norm)
+            else:
+                with torch.autocast(enabled=False, device_type='cuda'):
+                    x = torch.fft.irfftn(out_fft, s=mode_sizes, dim=fft_dims, norm=self.fft_norm)
 
         if self.bias is not None:
             x = x + self.bias

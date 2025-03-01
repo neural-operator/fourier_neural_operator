@@ -26,6 +26,14 @@ class FNO(BaseModel, name='FNO'):
 
     For a deeper dive into the FNO architecture, refer to :ref:`fno_intro`.
 
+    .. note::
+        By default, automatic mixed-precision is disabled for all FFT calls
+        on CUDA. See ``neuralop/layers/spectral_convolution.py`` for more details.
+        To enable AMP FFT, set the environment variable below:
+
+        .. code::bash
+            $ export ENABLE_AMP_CUFFT=1
+
     Parameters
     ----------
     n_modes : Tuple[int]

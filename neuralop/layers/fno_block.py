@@ -20,6 +20,14 @@ class FNOBlocks(nn.Module):
     are first described in [1]_. The exact implementation details of the Fourier 
     layer architecture are discussed in [2]_.
 
+    .. note::
+        By default, automatic mixed-precision is disabled for all FFT calls
+        on CUDA. See ``neuralop/layers/spectral_convolution.py`` for more details.
+        To enable AMP FFT, set the environment variable below:
+
+        .. code::bash
+            $ export ENABLE_AMP_CUFFT=1
+
     Parameters
     ----------
     in_channels : int
