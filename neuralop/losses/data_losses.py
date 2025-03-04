@@ -727,3 +727,27 @@ class PointwiseQuantileLoss(object):
         loss_batch = self.reduce_all(ptavg_loss).squeeze()
 
         return loss_batch
+
+class MSELoss(object):
+    """
+    MSELoss computes absolute mean-squared L2 error between two tensors.
+    """
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, y_pred: torch.Tensor, y: torch.Tensor, dim: List[int]=None, **kwargs):
+        """MSE loss call 
+
+        Parameters
+        ----------
+        y_pred : torch.Tensor
+            tensor of predictions
+        y : torch.Tensor
+            ground truth, must be same shape as y_pred
+        dim : List[int], optional
+            dimensions across which to compute MSE, by default None
+        """
+        assert y_pred.shape == y.shape, (y.shape, y_pred.shape)
+        if dim is None:
+            dim = list(range(1, y_pred.ndim)) # no reduction across batch dim
+        return torch.mean((y_pred - y) ** 2, dim=dim).sum() # sum of MSEs for each element

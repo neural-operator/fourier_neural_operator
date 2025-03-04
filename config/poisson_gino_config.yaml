@@ -1,0 +1,111 @@
+default: &DEFAULT
+
+  arch: 'gino'
+  verbose: True
+  n_params_baseline: None
+
+  # Distributed computing
+  distributed:
+    use_distributed: False
+    wireup_info: 'mpi'
+    wireup_store: 'tcp'
+    model_parallel_size: 2
+    seed: 666
+
+  # Dataset related
+  data:
+    batch_size: 1
+    file: '/home/dave/data/nonlin_poisson/nonlinear_poisson.obj'
+    n_train: 1
+    n_test: 1 #[48]
+    n_in: 10000 # Input points per instance
+    n_out: 1000 # Output query points instance
+    n_eval: 6000 # Points to evaluate on
+    single_instance: True
+    # train_out_res: 64 # Resolution of output GNO points' grid
+    test_batch_sizes: [1] #16
+    query_resolution: 64
+    train_out_res: 400 #400
+    points_per_bc: 100
+    padding: 1
+    encode: True
+    input_min: 1000
+    input_max: 10000
+    sample_random_in: None # Set to a certain percentage if we want to sample a static number of points. Will use the range otherwise
+    sample_random_out: None
+
+  checkpoint_dir: '../checkpoints/'
+  checkpoint_name: 'PoissonMLPCheck'
+
+  # Patching
+  patching:
+    levels: 0
+    padding: 0
+    stitching: False
+
+  gino:
+    data_channels: 3
+    out_channels: 1
+    projection_channels: 256
+    res: False
+    gno_coord_dim: 2
+    in_gno_pos_embed_type: None
+    out_gno_pos_embed_type: 'transformer'
+    gno_embed_channels: 16 # try 16 next
+    gno_embed_max_positions: 600
+    in_gno_radius: 0.16
+    out_gno_radius: 0.175
+    in_gno_transform_type: 'linear' #ryan config'd to nonlinear but not passed # linear_kernelonly, linear, nonlinear_kernelonly, nonlinear
+    out_gno_transform_type: 'linear' # linear_kernelonly, linear, nonlinear_kernelonly, nonlinear
+    gno_reduction: 'mean'
+    gno_weighting_function: 'quadr' # 'bump', 'bump_sqrt', 'linear', 'tanh', 'cos', 'quadr', 'cubic', 'quartic'. 'quartic_sqrt', 'octic', 'octic_sqrt', None
+    gno_weight_function_scale: 1. #0.030624999999999996
+    gno_use_open3d: False
+    in_gno_channel_mlp_hidden_layers: [256, 512, 256] #[40, 40], [512, 256]
+    out_gno_channel_mlp_hidden_layers: [512, 1024, 512] #[40, 40], [512, 256]
+    in_gno_tanh: None # None, 'in_p', 'latent_embed', 'both'
+    out_gno_tanh: None # None, 'in_p', 'latent_embed', 'both'
+    fno_n_modes: [20, 20] #[32, 32, 32] #just changed this trying next # try 16 along each dim?
+    fno_hidden_channels: 64 #86
+    fno_lifting_channel_ratio: 4
+    fno_n_layers: 4
+    fno_use_channel_mlp: True
+    fno_channel_mlp_expansion: 1.0
+    fno_norm: 'group_norm' # also tried 'ada_in', no difference found
+    fno_ada_in_features: 8
+    fno_factorization: None
+    fno_rank: 0.8
+    fno_domain_padding: 0. # 0625 #0.125
+    debug: False
+  
+  opt:
+    n_epochs: 1000
+    training_loss: ['equation', 'boundary']
+    loss_weights: 
+      mse : 1.
+      interior: 1e-10
+      boundary: 1.
+    loss_schedule: False
+    loss_scale: 1.
+    pino_method: 'autograd' # 'finite_difference', 'fdm_fourier_hybrid', 'autograd', 'FC_fourier_hybrid', 'FC'
+    weight_decay: 0. #1e-6 #1e-4 #1e-4 #0
+    amp_autocast: False
+    learning_rate: 1e-3
+    optimizer: 'Adam'
+    scheduler: 'ReduceLROnPlateau' # Or 'CosineAnnealingLR' OR 'ReduceLROnPlateau' or "StepLR"
+    scheduler_T_max: 5000 # For cosine only, typically take n_epochs
+    scheduler_patience: 2 # For ReduceLROnPlateau only
+    gamma: 0.9
+    precision_schedule: None
+    
+
+  # Weights and biases
+  wandb:
+    log: True
+    name: single_inst_pino # If None, config will be used but you can override it here
+    group: test
+    project: "mgno_poisson"
+    entity: "dhpitt" # put your username here
+    sweep: False
+    log_output: True
+    log_test_interval: 1
